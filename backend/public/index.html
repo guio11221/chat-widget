@@ -22,15 +22,16 @@
       await ChatWidget.unmount();
       ChatWidget.init({
         predefinedQuestions: ['Qual o prazo de entrega?', 'Como fazer um pedido?', 'Quais as formas de pagamento?'],
-     
-        tema: 'dark'
+
       }).then(async () => {
-        ChatWidget.open();
+        ChatWidget.open(); 
         ChatWidget.registerCommand('oi', function (args) {
           return "oiiiiiii";
         });
 
-        ChatWidget.setPosition('top-right')
+        ChatWidget.sendMessage("OII")
+ 
+       
         console.log(ChatWidget)
       });
     }

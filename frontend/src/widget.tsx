@@ -5,7 +5,6 @@ import ChatLateral, { ChatLateralHandle, ChatLateralProps, PredefinedQuestion } 
 export type InitOptions = Omit<ChatLateralProps, 'ref' | 'commandExecutor'> & {
   tema?: 'dark' | 'light';
   locale?: string;
-  position: Position;
   predefinedQuestions?: PredefinedQuestion[];
 };
 

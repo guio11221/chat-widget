@@ -2,7 +2,7 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.ts",
   "scripts": {
      "watch": "nodemon -e ts -w ./src -x npm run watch:serve",
     "watch:serve": "ts-node --inspect server.ts"

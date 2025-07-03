@@ -362,19 +362,35 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
     }, [visivel]);
 
     const enviarMensagem = async (msg: string) => {
-      if (!msg.trim() || !socketRef.current) return;
-      if (msg.startsWith('/')) {
-        const [cmd, ...args] = msg.slice(1).split(' ');
-        const resposta = commandExecutor
-          ? await commandExecutor(cmd, args)
-          : `Comando /${cmd} não reconhecido.`;
-        adicionarMensagem(resposta, 'agente');
-      } else {
-        socketRef.current.emit('mensagem', msg);
-        adicionarMensagem(msg, 'usuario');
+      // 1. Validação inicial: Garante que a mensagem não esteja vazia e que o socket esteja pronto.
+      const mensagemFormatada = msg.trim();
+      if (!mensagemFormatada || !socketRef.current) {
+          return;
       }
+  
       setNovaMensagem('');
-    };
+      adicionarMensagem(mensagemFormatada, 'usuario');
+  
+      if (mensagemFormatada.startsWith('/')) {
+          const [cmd, ...args] = mensagemFormatada.slice(1).split(' ');
+          let respostaComando: string;
+  
+          try {
+              if (commandExecutor) {
+                  respostaComando = await commandExecutor(cmd, args);
+              } else {
+                  respostaComando = `Comando /${cmd} não reconhecido ou nenhum executor de comandos configurado.`;
+              }
+          } catch (error) {
+              console.error(`Erro ao executar comando /${cmd}:`, error);
+              respostaComando = `Ocorreu um erro ao tentar executar o comando /${cmd}.`;
+          }
+          adicionarMensagem(respostaComando, 'agente');
+  
+      } else {
+          socketRef.current.emit('mensagem', mensagemFormatada);
+      }
+  };
 
     const adicionarMensagem = (
       texto: string | null,
