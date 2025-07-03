@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo ChatWidget - API Completa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    button { margin: 5px; padding: 10px 15px; cursor: pointer; }
+    input[type="text"] { padding: 8px; width: 250px; margin-right: 10px; }
+  </style>
+</head>
+<body>
+
+  <h1>Demo ChatWidget - API Completa</h1>
+
+ 
+
+  <script src="/chat-widget.js"></script> <!-- Ajuste o caminho para o seu bundle JS -->
+
+  <script>
+    (async () => {
+      // Inicializa o widget
+      await ChatWidget.init({
+        socketUrl: 'http://localhost:3000',
+        tema: 'light',
+        locale: 'pt-BR'
+      });
+
+ 
+    })();
+  </script>
+
+</body>
+</html>

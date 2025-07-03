@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Demo ChatWidget - API Completa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+ 
+</head>
+
+<body> 
+
+  <h1>Demo ChatWidget - API Completa</h1>
+
+
+ 
+  <script src="/chat-widget.js"></script> 
+
+  <script>
+
+    async function Chat(params) {
+      await ChatWidget.unmount();
+      ChatWidget.init({
+        predefinedQuestions: ['Qual o prazo de entrega?', 'Como fazer um pedido?', 'Quais as formas de pagamento?'],
+     
+        tema: 'dark'
+      }).then(async () => {
+        ChatWidget.open();
+        ChatWidget.registerCommand('oi', function (args) {
+          return "oiiiiiii";
+        });
+
+        ChatWidget.setPosition('top-right')
+        console.log(ChatWidget)
+      });
+    }
+
+    Chat()
+  </script>
+
+</body>
+
+</html>
