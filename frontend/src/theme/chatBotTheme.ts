@@ -1,6 +1,6 @@
 import { createTheme } from '@mui/material';
 
-export const chatBotTheme = createTheme({
+export default createTheme({
   palette: {
     primary: {
       main: '#007bff',
@@ -32,10 +32,10 @@ export const chatBotTheme = createTheme({
       color: '#868e96',
     },
   },
-  components: { // Ensure 'components' is always an object
+  components: {
     MuiAppBar: {
-      styleOverrides: { // Ensure 'styleOverrides' is always an object
-        root: { // Ensure 'root' is always an object
+      styleOverrides: {
+        root: {
           elevation: 0,
           borderBottom: '1px solid #dee2e6',
         },
@@ -87,22 +87,5 @@ export const chatBotTheme = createTheme({
         }),
       },
     },
-    // Add default empty styleOverrides for Tooltip, Menu, MenuItem if they are not present
-    // in the base theme, but are referenced in ChatLateral.tsx
-    MuiTooltip: {
-        styleOverrides: {
-            tooltip: {}, // Ensure this exists
-        }
-    },
-    MuiMenu: {
-        styleOverrides: {
-            paper: {}, // Ensure this exists
-        }
-    },
-    MuiMenuItem: {
-        styleOverrides: {
-            root: {}, // Ensure this exists
-        }
-    }
   },
 });

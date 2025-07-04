@@ -5,7 +5,6 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import io, { Socket } from 'socket.io-client';
 import {
   Box,
   IconButton,
@@ -19,8 +18,6 @@ import {
   createTheme,
   ThemeProvider,
   styled,
-  Menu,
-  MenuItem,
   Tooltip,
   Fade,
   useMediaQuery,
@@ -34,102 +31,13 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
-import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
-import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
-import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import MenuIcon from '@mui/icons-material/Menu'; // Import the menu icon
+import SwapVertIcon from '@mui/icons-material/SwapVert'; // Import the swap icon for button layout
+import chatBotTheme from './theme/chatBotTheme';
+import { Mensagem, ChatLateralHandle, ChatLateralProps, PredefinedQuestion } from './types';
+import theme from './theme/createTheme';
 
-const chatBotTheme = createTheme({
-  palette: {
-    primary: {
-      main: '#007bff',
-    },
-    secondary: {
-      main: '#6c757d',
-    },
-    background: {
-      default: '#f8f9fa',
-      paper: '#fff',
-    },
-    text: {
-      primary: '#212529',
-      secondary: '#6c757d',
-    },
-  },
-  typography: {
-    fontFamily: '"Segoe UI", Roboto, "Helvetica", Arial, sans-serif',
-    h6: {
-      fontWeight: 500,
-      fontSize: '1.1rem',
-    },
-    body2: {
-      fontSize: '0.9rem',
-      lineHeight: 1.6,
-    },
-    caption: {
-      fontSize: '0.75rem',
-      color: '#868e96',
-    },
-  },
-  components: {
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          elevation: 0,
-          borderBottom: '1px solid #dee2e6',
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: 6,
-          boxShadow: '0 0.125rem 0.25rem rgba(0,0,0,.075)',
-        },
-      },
-    },
-    MuiIconButton: {
-      styleOverrides: {
-        root: {
-          color: '#495057',
-          '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.03)',
-          },
-        },
-      },
-    },
-    MuiBadge: {
-      styleOverrides: {
-        badge: {
-          backgroundColor: '#dc3545',
-          color: '#fff',
-          fontWeight: 500,
-          fontSize: '0.8rem',
-          padding: '0.3rem 0.5rem',
-          borderRadius: '0.5rem',
-        },
-      },
-    },
-    MuiAvatar: {
-      styleOverrides: {
-        root: {
-          fontSize: '0.9rem',
-          fontWeight: 500,
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: ({ theme }) => ({
-          marginRight: theme.spacing(1),
-          marginBottom: theme.spacing(1),
-        }),
-      },
-    },
-  },
-});
-
-
+// Styled component for the badge on the chat icon
 const StyledBadge = styled(Badge)(({ theme }) => ({
   '& .MuiBadge-badge': {
     right: 0,
@@ -140,53 +48,91 @@ const StyledBadge = styled(Badge)(({ theme }) => ({
   },
 }));
 
+// Function to format the time in HH:MM format
 const formatHora = (date: Date) =>
   date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-export type Mensagem = {
-  texto: string;
-  hora: string;
-  id: string;
-  origem?: 'usuario' | 'agente';
-  tipo?: 'texto' | 'imagem';
-  dataUrl?: string | null | undefined;  
-};
-export type PredefinedQuestion = string;
-
-export type ChatLateralProps = {
-  socketUrl: string;
-  temaEscuroInicial?: 'light' | 'dark';
-  welcomeMessage?: string;
-  commandExecutor?: (cmd: string, args: string[]) => Promise<string> | string;
+// Interface for the props of the individual chat message component
+interface ChatMessageProps {
+  mensagem: Mensagem;
+  origem: 'usuario' | 'agente';
   botAvatarUrl?: string;
   userAvatarUrl?: string;
-  chatTitle?: string;
-  predefinedQuestions?: PredefinedQuestion[];
+  theme: ReturnType<typeof createTheme>;
+  enviarMensagem: (msg: string) => Promise<void>;
+  buttonLayout: 'horizontal' | 'vertical';
+}
+
+// Component to render a single chat message
+const ChatMessage: React.FC<ChatMessageProps> = ({ mensagem, origem, botAvatarUrl, userAvatarUrl, theme, enviarMensagem, buttonLayout }) => {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: origem === 'usuario' ? 'row-reverse' : 'row',
+        alignItems: 'flex-start',
+        mb: 1.5,
+        gap: 1,
+        maxWidth: '90%',
+        alignSelf: origem === 'usuario' ? 'flex-end' : 'flex-start',
+      }}
+    >
+      {/* Render avatar based on the message origin and provided URLs */}
+      {(origem === 'agente' && botAvatarUrl) || (origem === 'usuario' && userAvatarUrl) ? (
+        <Avatar src={origem === 'agente' ? botAvatarUrl : userAvatarUrl} sx={{ width: 36, height: 36 }} />
+      ) : (
+        <Avatar sx={{ width: 36, height: 36, bgcolor: origem === 'agente' ? theme.palette.secondary.main : theme.palette.primary.main }}>
+          {origem === 'agente' ? 'A' : 'U'}
+        </Avatar>
+      )}
+      {/* Message content */}
+      <Paper
+        sx={{
+          p: 1.5,
+          borderRadius: origem === 'usuario'
+            ? '18px 18px 2px 18px'
+            : '2px 18px 18px 18px',
+          backgroundColor: origem === 'usuario' ? theme.palette.primary.main : theme.palette.background.paper,
+          color: origem === 'usuario' ? 'white' : theme.palette.text.primary,
+          boxShadow: 1,
+          maxWidth: '80%',
+          wordBreak: 'break-word',
+        }}
+      >
+        {mensagem.tipo === 'texto' ? (
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{mensagem.texto}</Typography>
+        ) : mensagem.tipo === 'imagem' && mensagem.dataUrl ? (
+          <Box sx={{ maxWidth: '100%', borderRadius: 1 }}>
+            <img src={mensagem.dataUrl} alt="Imagem enviada" style={{ maxWidth: '100%', height: 'auto', borderRadius: 4 }} />
+          </Box>
+        ) : null}
+        <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', mt: 0.5 }}>
+          {mensagem.hora}
+        </Typography>
+        {/* Render buttons if present in the message */}
+        {origem === 'agente' && mensagem.buttons && mensagem.buttons.length > 0 && (
+          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexDirection: buttonLayout === 'vertical' ? 'column' : 'row' }}>
+            {mensagem.buttons.map((button) => (
+              <Button
+                key={button.text}
+                variant="outlined"
+                size="small"
+                onClick={() => enviarMensagem(button.action)}
+                sx={buttonLayout === 'vertical' ? { width: '100%' } : {}}
+              >
+                {button.text}
+              </Button>
+            ))}
+          </Box>
+        )}
+      </Paper>
+    </Box>
+  );
 };
 
-export type ChatLateralHandle = {
-  open: () => void;
-  close: () => void;
-  sendMessage: (msg: string) => void;
-  toggleTheme: () => void;
-  isOpen: () => boolean;
-  setBadge: (count: number) => void;
-  setPosition: (position: 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right') => void;
-  setTheme: (tema: 'light' | 'dark') => void;
-  resize: (dimensions: { width: number; height: number }) => void;
-  loadHistory: (messages: { texto: string; hora: string; id: string; origem?: 'usuario' | 'agente' }[]) => void;
-  clearHistory: () => void;
-  setAgentStatus: (status: 'online' | 'offline') => void;
-  show: () => void;
-  hide: () => void;
-  setLocale: (locale: string) => void;
-  setPredefinedQuestions: (questions: PredefinedQuestion[]) => void;
-};
-
-const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
+const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socketUrl'>>(
   (
     {
-      socketUrl,
       temaEscuroInicial = 'light',
       welcomeMessage = 'Olá! Como posso ajudar você hoje?',
       commandExecutor,
@@ -194,109 +140,35 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
       userAvatarUrl,
       chatTitle = 'Atendimento Online',
       predefinedQuestions: initialPredefinedQuestions = [],
+      customResponses = {},
     },
     ref,
   ) => {
+    // State variables
     const [mensagens, setMensagens] = useState<Mensagem[]>([]);
     const [novaMensagem, setNovaMensagem] = useState('');
     const [visivel, setVisivel] = useState(false);
     const [modoEscuro, setModoEscuro] = useState(temaEscuroInicial === 'dark');
     const [temNovaMensagem, setTemNovaMensagem] = useState(0);
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [badgeCount, setBadgeCount] = useState(0);
     const [position, setPosition] = useState<'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'>('bottom-right');
     const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 360, height: 480 });
     const [agentStatus, setAgentStatus] = useState<'online' | 'offline'>('online');
     const [predefinedQuestions, setPredefinedQuestions] = useState<PredefinedQuestion[]>(initialPredefinedQuestions);
-    const [showPredefinedQuestions, setShowPredefinedQuestions] = useState(false); // State for button visibility
+    const [showPredefinedQuestions, setShowPredefinedQuestions] = useState(false);
+    const [buttonLayout, setButtonLayout] = useState<'horizontal' | 'vertical'>('horizontal'); // State for button layout
+
+    // References
     const scrollRef = useRef<HTMLDivElement>(null);
-    const socketRef = useRef<Socket | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const theme = createTheme({
-      palette: {
-        mode: modoEscuro ? 'dark' : 'light',
-        ...chatBotTheme.palette,
-      },
-      typography: {
-        ...chatBotTheme.typography,
-      },
-      components: {
-        MuiAppBar: {
-          styleOverrides: {
-            root: {
-              ...chatBotTheme.components?.MuiAppBar?.styleOverrides?.root,
-              backgroundColor: modoEscuro ? '#303030' : chatBotTheme.palette.primary.main,
-              color: modoEscuro ? '#fff' : '#fff',
-            },
-          },
-        },
-        MuiPaper: {
-          styleOverrides: {
-            root: {
-              ...chatBotTheme.components?.MuiPaper?.styleOverrides?.root,
-              backgroundColor: modoEscuro ? '#212121' : chatBotTheme.palette.background.paper,
-              color: modoEscuro ? '#fff' : chatBotTheme.palette.text.primary,
-            },
-          },
-        },
-        MuiIconButton: {
-          styleOverrides: {
-            root: {
-              ...chatBotTheme.components?.MuiIconButton?.styleOverrides?.root,
-              color: modoEscuro ? '#fff' : chatBotTheme.palette.text.primary,
-            },
-          },
-        },
-        MuiInputBase: {
-          styleOverrides: {
-            root: {
-              color: modoEscuro ? '#fff' : chatBotTheme.palette.text.primary,
-              minWidth: 0, // Added this line
-            },
-          },
-        },
-        MuiTooltip: {
-          styleOverrides: {
-            tooltip: {
-              backgroundColor: modoEscuro ? '#424242' : chatBotTheme.palette.background.paper,
-              color: modoEscuro ? '#fff' : chatBotTheme.palette.text.primary,
-              borderRadius: chatBotTheme.components?.MuiPaper?.styleOverrides?.root.borderRadius,
-              boxShadow: modoEscuro ? 'none' : chatBotTheme.components?.MuiPaper?.styleOverrides?.root.boxShadow,
-            },
-          },
-        },
-        MuiMenu: {
-          styleOverrides: {
-            paper: {
-              backgroundColor: modoEscuro ? '#303030' : chatBotTheme.palette.background.paper,
-              color: modoEscuro ? '#fff' : chatBotTheme.palette.text.primary,
-              borderRadius: chatBotTheme.components?.MuiPaper?.styleOverrides?.root.borderRadius,
-              boxShadow: modoEscuro ? 'none' : chatBotTheme.components?.MuiPaper?.styleOverrides?.root.boxShadow,
-            },
-          },
-        },
-        MuiMenuItem: {
-          styleOverrides: {
-            root: {
-              '&:hover': {
-                backgroundColor: modoEscuro ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-              },
-            },
-          },
-        },
-        MuiButton: {
-          styleOverrides: {
-            root: ({ theme }) => ({
-              marginRight: theme.spacing(1),
-              marginBottom: theme.spacing(1),
-            }),
-          },
-        },
-      },
-    });
+    // Theme and media queries
+    const muiTheme = useTheme();
+    const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+    const isMedium = useMediaQuery(muiTheme.breakpoints.up('md'));
+    const isLarge = useMediaQuery(muiTheme.breakpoints.up('lg'));
 
-    const getPositionStyles = () => {
+    // Function to determine styles based on the chat widget's position
+    const getPositionStyles = (position: string) => {
       switch (position) {
         case 'bottom-right':
           return { bottom: isLarge ? 48 : 100, right: isLarge ? 48 : 24 };
@@ -310,11 +182,8 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
           return { bottom: isLarge ? 48 : 100, right: isLarge ? 48 : 24 };
       }
     };
-    const muiTheme = useTheme();
-    const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
-    const isMedium = useMediaQuery(muiTheme.breakpoints.up('md'));
-    const isLarge = useMediaQuery(muiTheme.breakpoints.up('lg'));
 
+    // Imperative handle for external control of the chat widget
     useImperativeHandle(ref, () => ({
       open: () => setVisivel(true),
       close: () => setVisivel(false),
@@ -330,23 +199,11 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
       setAgentStatus: (status) => setAgentStatus(status),
       show: () => setVisivel(true),
       hide: () => setVisivel(false),
-      setLocale: (locale) => {
-        // Aqui você pode implementar a lógica para alterar o locale, se necessário
-        console.log('Locale definido para:', locale);
-      },
+      setLocale: (locale) => console.log('Locale definido para:', locale),
       setPredefinedQuestions: (questions) => setPredefinedQuestions(questions),
     }));
 
-    useEffect(() => {
-      const socket = io(socketUrl);
-      socketRef.current = socket;
-      socket.on('mensagem', (msg) => adicionarMensagem(msg, 'agente'));
-      socket.on('imagem', (dataUrl) => adicionarMensagem(null, 'agente', 'imagem', dataUrl));
-      return () => {
-        socket.disconnect();
-      };
-    }, [socketUrl]);
-
+    // Scroll to the latest message when messages update
     useEffect(() => {
       scrollRef.current?.scrollTo({
         top: scrollRef.current.scrollHeight,
@@ -354,75 +211,76 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
       });
     }, [mensagens]);
 
+    // Display welcome message on chat open if no messages exist
     useEffect(() => {
       if (visivel && mensagens.length === 0) {
-        adicionarMensagem(welcomeMessage, 'agente');
+        const helloResponse = customResponses['olá'];
+        adicionarMensagem(welcomeMessage, 'agente', 'texto', null, typeof helloResponse === 'object' && helloResponse ? helloResponse.buttons : null);
       }
       if (visivel) setTemNovaMensagem(0);
     }, [visivel]);
 
+    // Function to send a new message
     const enviarMensagem = async (msg: string) => {
-      // 1. Validação inicial: Garante que a mensagem não esteja vazia e que o socket esteja pronto.
-      const mensagemFormatada = msg.trim();
-      if (!mensagemFormatada || !socketRef.current) {
-          return;
+      const mensagemFormatada = msg.trim().toLowerCase();
+
+      if (!mensagemFormatada) {
+        return;
       }
-  
+
       setNovaMensagem('');
       adicionarMensagem(mensagemFormatada, 'usuario');
-  
-      if (mensagemFormatada.startsWith('/')) {
-          const [cmd, ...args] = mensagemFormatada.slice(1).split(' ');
-          let respostaComando: string;
-  
-          try {
-              if (commandExecutor) {
-                  respostaComando = await commandExecutor(cmd, args);
-              } else {
-                  respostaComando = `Comando /${cmd} não reconhecido ou nenhum executor de comandos configurado.`;
-              }
-          } catch (error) {
-              console.error(`Erro ao executar comando /${cmd}:`, error);
-              respostaComando = `Ocorreu um erro ao tentar executar o comando /${cmd}.`;
-          }
-          adicionarMensagem(respostaComando, 'agente');
-  
-      } else {
-          socketRef.current.emit('mensagem', mensagemFormatada);
-      }
-  };
 
+      // Check for custom responses
+      if (customResponses.hasOwnProperty(mensagemFormatada)) {
+        const resposta = customResponses[mensagemFormatada];
+        if (typeof resposta === 'object' && resposta) {
+          adicionarMensagem(resposta.text, 'agente', 'texto', null, resposta.buttons);
+        } else if (typeof resposta === 'string') {
+          adicionarMensagem(resposta, 'agente');
+        }
+      } else {
+        adicionarMensagem('Desculpe, não entendi sua pergunta.', 'agente');
+      }
+    };
+
+    // Function to add a new message to the chat
     const adicionarMensagem = (
       texto: string | null,
       origem: 'usuario' | 'agente',
       tipo: 'texto' | 'imagem' = 'texto',
       dataUrl: string | null = null,
+      buttons: { text: string; action: string }[] | null = null,
     ) => {
       setMensagens((msgs) => [
         ...msgs,
-        { texto: texto || '', origem, hora: formatHora(new Date()), id: crypto.randomUUID(), tipo, dataUrl },
+        { texto: texto || '', origem, hora: formatHora(new Date()), id: crypto.randomUUID(), tipo, dataUrl, buttons: buttons || undefined },
       ]);
       if (!visivel && origem === 'agente') setTemNovaMensagem((v) => v + 1);
     };
 
+    // Handle click on the attachment button
     const handleAnexoClick = () => {
-      setAnchorEl(null);
-      fileInputRef.current?.click();
+      anchorEl ? setAnchorEl(null) : fileInputRef.current?.click();
     };
 
+    // Handle file selection for attachment
     const handleAnexoChange = () => {
       const file = fileInputRef.current?.files?.[0];
       if (file) {
         const reader = new FileReader();
         reader.onloadend = () => {
           const dataUrl = reader.result as string;
-          socketRef.current?.emit('imagem', dataUrl);
           adicionarMensagem(null, 'usuario', 'imagem', dataUrl);
+        };
+        reader.onerror = () => {
+          console.error("Erro ao ler o arquivo.");
         };
         reader.readAsDataURL(file);
       }
     };
 
+    // Handle click on a predefined question button
     const handlePredefinedQuestionClick = (question: string) => {
       enviarMensagem(question);
     };
@@ -430,7 +288,7 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Box sx={{ position: 'fixed', ...getPositionStyles(), zIndex: 1300 }}>
+        <Box sx={{ position: 'fixed', ...getPositionStyles(position), zIndex: 1300 }}>
           <StyledBadge
             color="secondary"
             badgeContent={temNovaMensagem}
@@ -451,7 +309,7 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
           <Paper
             sx={{
               position: 'fixed',
-              ...getPositionStyles(),
+              ...getPositionStyles(position),
               width: isMobile ? '95vw' : isMedium ? dimensions.width : isLarge ? dimensions.width : 360,
               height: isMobile ? '80vh' : isMedium ? dimensions.height : isLarge ? dimensions.height : 480,
               maxHeight: '95vh',
@@ -467,7 +325,12 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
             <AppBar position="static">
               <Toolbar sx={{ justifyContent: 'space-between' }}>
                 <Typography variant="h6">{chatTitle}</Typography>
-                <Box>
+                <Box display="flex" alignItems="center">
+                  <Tooltip title="Alternar layout dos botões">
+                    <IconButton onClick={() => setButtonLayout(prev => prev === 'horizontal' ? 'vertical' : 'horizontal')} color="inherit">
+                      <SwapVertIcon />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title={modoEscuro ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}>
                     <IconButton onClick={() => setModoEscuro((v) => !v)} color="inherit">
                       {modoEscuro ? <Brightness7Icon /> : <Brightness4Icon />}
@@ -506,51 +369,17 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
                 },
               }}
             >
-              {mensagens.map(({ id, texto, hora, origem, tipo, dataUrl }) => (
-                <Box
-                  key={id}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: origem === 'usuario' ? 'row-reverse' : 'row',
-                    alignItems: 'flex-start',
-                    mb: 1.5,
-                    gap: 1,
-                    maxWidth: '90%',
-                    alignSelf: origem === 'usuario' ? 'flex-end' : 'flex-start',
-                  }}
-                >
-                  {(origem === 'agente' && botAvatarUrl) || (origem === 'usuario' && userAvatarUrl) ? (
-                    <Avatar src={origem === 'agente' ? botAvatarUrl : userAvatarUrl} sx={{ width: 36, height: 36 }} />
-                  ) : (
-                    <Avatar sx={{ width: 36, height: 36, bgcolor: origem === 'agente' ? theme.palette.secondary.main : theme.palette.primary.main }}>
-                      {origem === 'agente' ? 'A' : 'U'}
-                    </Avatar>
-                  )}
-                  <Paper
-                    sx={{
-                      p: 1.5,
-                      borderRadius: origem === 'usuario'
-                        ? '18px 18px 2px 18px'
-                        : '2px 18px 18px 18px',
-                      backgroundColor: origem === 'usuario' ? theme.palette.primary.main : theme.palette.background.paper,
-                      color: origem === 'usuario' ? 'white' : theme.palette.text.primary,
-                      boxShadow: 1,
-                      maxWidth: '80%',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {tipo === 'texto' ? (
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{texto}</Typography>
-                    ) : tipo === 'imagem' && dataUrl ? (
-                      <Box sx={{ maxWidth: '100%', borderRadius: 1 }}>
-                        <img src={dataUrl} alt="Imagem enviada" style={{ maxWidth: '100%', height: 'auto', borderRadius: 4 }} />
-                      </Box>
-                    ) : null}
-                    <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', mt: 0.5 }}>
-                      {hora}
-                    </Typography>
-                  </Paper>
-                </Box>
+              {mensagens.map((mensagem) => (
+                <ChatMessage
+                  key={mensagem.id}
+                  mensagem={mensagem}
+                  origem={mensagem.origem || 'agente'}
+                  botAvatarUrl={botAvatarUrl}
+                  userAvatarUrl={userAvatarUrl}
+                  theme={theme}
+                  enviarMensagem={enviarMensagem}
+                  buttonLayout={buttonLayout}
+                />
               ))}
             </Box>
 
@@ -561,7 +390,7 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
                     key={question}
                     variant="outlined"
                     size="small"
-                    onClick={() => handlePredefinedQuestionClick(question)}
+                    onClick={() => enviarMensagem(question)}
                   >
                     {question}
                   </Button>
@@ -589,7 +418,7 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
                   <AttachFileIcon />
                 </IconButton>
               </Tooltip>
-              <IconButton onClick={() => setShowPredefinedQuestions((prev) => !prev)}> {/* Toggle visibility */}
+              <IconButton onClick={() => setShowPredefinedQuestions((prev) => !prev)}>
                 <MenuIcon />
               </IconButton>
               <input
@@ -612,7 +441,7 @@ const ChatLateral = forwardRef<ChatLateralHandle, ChatLateralProps>(
                   bgcolor: 'background.paper',
                   borderRadius: 4,
                   border: `1px solid ${theme.palette.divider}`,
-                  minWidth: 0, // Added this line to allow shrinking
+                  minWidth: 0,
                 }}
                 inputProps={{ 'aria-label': 'Enviar mensagem' }}
               />
