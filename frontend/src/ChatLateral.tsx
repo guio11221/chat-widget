@@ -4,6 +4,7 @@ import React, {
   useState,
   forwardRef,
   useImperativeHandle,
+  useCallback,
 } from 'react';
 import {
   Box,
@@ -31,13 +32,12 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
-import MenuIcon from '@mui/icons-material/Menu'; // Import the menu icon
-import SwapVertIcon from '@mui/icons-material/SwapVert'; // Import the swap icon for button layout
-import chatBotTheme from './theme/chatBotTheme';
+import MenuIcon from '@mui/icons-material/Menu';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { Mensagem, ChatLateralHandle, ChatLateralProps, PredefinedQuestion } from './types';
+import chatBotTheme from './theme/chatBotTheme';
 import theme from './theme/createTheme';
 
-// Styled component for the badge on the chat icon
 const StyledBadge = styled(Badge)(({ theme }) => ({
   '& .MuiBadge-badge': {
     right: 0,
@@ -48,87 +48,98 @@ const StyledBadge = styled(Badge)(({ theme }) => ({
   },
 }));
 
-// Function to format the time in HH:MM format
 const formatHora = (date: Date) =>
   date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-// Interface for the props of the individual chat message component
 interface ChatMessageProps {
   mensagem: Mensagem;
   origem: 'usuario' | 'agente';
   botAvatarUrl?: string;
   userAvatarUrl?: string;
   theme: ReturnType<typeof createTheme>;
-  enviarMensagem: (msg: string) => Promise<void>;
+  onSendMessage: (msg: string) => Promise<void>;
   buttonLayout: 'horizontal' | 'vertical';
 }
 
-// Component to render a single chat message
-const ChatMessage: React.FC<ChatMessageProps> = ({ mensagem, origem, botAvatarUrl, userAvatarUrl, theme, enviarMensagem, buttonLayout }) => {
+const ChatMessage: React.FC<ChatMessageProps> = ({ mensagem, origem, botAvatarUrl, userAvatarUrl, theme, onSendMessage, buttonLayout }) => {
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: origem === 'usuario' ? 'row-reverse' : 'row',
-        alignItems: 'flex-start',
-        mb: 1.5,
-        gap: 1,
-        maxWidth: '90%',
-        alignSelf: origem === 'usuario' ? 'flex-end' : 'flex-start',
-      }}
-    >
-      {/* Render avatar based on the message origin and provided URLs */}
-      {(origem === 'agente' && botAvatarUrl) || (origem === 'usuario' && userAvatarUrl) ? (
-        <Avatar src={origem === 'agente' ? botAvatarUrl : userAvatarUrl} sx={{ width: 36, height: 36 }} />
-      ) : (
-        <Avatar sx={{ width: 36, height: 36, bgcolor: origem === 'agente' ? theme.palette.secondary.main : theme.palette.primary.main }}>
-          {origem === 'agente' ? 'A' : 'U'}
-        </Avatar>
-      )}
-      {/* Message content */}
-      <Paper
-        sx={{
-          p: 1.5,
-          borderRadius: origem === 'usuario'
-            ? '18px 18px 2px 18px'
-            : '2px 18px 18px 18px',
-          backgroundColor: origem === 'usuario' ? theme.palette.primary.main : theme.palette.background.paper,
-          color: origem === 'usuario' ? 'white' : theme.palette.text.primary,
-          boxShadow: 1,
-          maxWidth: '80%',
-          wordBreak: 'break-word',
-        }}
-      >
-        {mensagem.tipo === 'texto' ? (
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{mensagem.texto}</Typography>
-        ) : mensagem.tipo === 'imagem' && mensagem.dataUrl ? (
-          <Box sx={{ maxWidth: '100%', borderRadius: 1 }}>
-            <img src={mensagem.dataUrl} alt="Imagem enviada" style={{ maxWidth: '100%', height: 'auto', borderRadius: 4 }} />
-          </Box>
-        ) : null}
-        <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', mt: 0.5 }}>
-          {mensagem.hora}
-        </Typography>
-        {/* Render buttons if present in the message */}
-        {origem === 'agente' && mensagem.buttons && mensagem.buttons.length > 0 && (
-          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexDirection: buttonLayout === 'vertical' ? 'column' : 'row' }}>
-            {mensagem.buttons.map((button) => (
-              <Button
-                key={button.text}
-                variant="outlined"
-                size="small"
-                onClick={() => enviarMensagem(button.action)}
-                sx={buttonLayout === 'vertical' ? { width: '100%' } : {}}
-              >
-                {button.text}
-              </Button>
-            ))}
-          </Box>
-        )}
+    <Box sx={messageContainerStyle(origem)}>
+      {renderAvatar(origem, botAvatarUrl, userAvatarUrl, theme)}
+      <Paper sx={messagePaperStyle(origem, theme)}>
+        {renderMessageContent(mensagem)}
+        {renderMessageTime(mensagem.hora)}
+        {renderMessageButtons(origem, mensagem.buttons, onSendMessage, buttonLayout)}
       </Paper>
     </Box>
   );
 };
+
+const messageContainerStyle = (origem: 'usuario' | 'agente') => ({
+  display: 'flex',
+  flexDirection: origem === 'usuario' ? 'row-reverse' : 'row',
+  alignItems: 'flex-start',
+  mb: 1.5,
+  gap: 1,
+  maxWidth: '90%',
+  alignSelf: origem === 'usuario' ? 'flex-end' : 'flex-start',
+});
+
+const renderAvatar = (origem: 'usuario' | 'agente', botAvatarUrl?: string, userAvatarUrl?: string, theme?: ReturnType<typeof createTheme>) => (
+  (origem === 'agente' && botAvatarUrl) || (origem === 'usuario' && userAvatarUrl) ? (
+    <Avatar src={origem === 'agente' ? botAvatarUrl : userAvatarUrl} sx={{ width: 36, height: 36 }} />
+  ) : (
+    <Avatar sx={{ width: 36, height: 36, bgcolor: origem === 'agente' ? theme?.palette.secondary.main : theme?.palette.primary.main }}>
+      {origem === 'agente' ? 'A' : 'U'}
+    </Avatar>
+  )
+);
+
+const messagePaperStyle = (origem: 'usuario' | 'agente', theme?: ReturnType<typeof createTheme>) => ({
+  p: 1.5,
+  borderRadius: origem === 'usuario' ? '18px 18px 2px 18px' : '2px 18px 18px 18px',
+  backgroundColor: origem === 'usuario' ? theme?.palette.primary.main : theme?.palette.background.paper,
+  color: origem === 'usuario' ? 'white' : theme?.palette.text.primary,
+  boxShadow: 1,
+  maxWidth: '80%',
+  wordBreak: 'break-word',
+});
+
+const renderMessageContent = (mensagem: Mensagem) => (
+  mensagem.tipo === 'texto' ? (
+    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{mensagem.texto}</Typography>
+  ) : mensagem.tipo === 'imagem' && mensagem.dataUrl ? (
+    <Box sx={{ maxWidth: '100%', borderRadius: 1 }}>
+      <img src={mensagem.dataUrl} alt="Imagem enviada" style={{ maxWidth: '100%', height: 'auto', borderRadius: 4 }} />
+    </Box>
+  ) : null
+);
+
+const renderMessageTime = (hora: string) => (
+  <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', mt: 0.5 }}>
+    {hora}
+  </Typography>
+);
+
+const renderMessageButtons = (origem: 'usuario' | 'agente', buttons: { text: string; action: string }[] | null | undefined, onSendMessage: (msg: string) => void, buttonLayout: 'horizontal' | 'vertical') => (
+  origem === 'agente' && buttons && buttons.length > 0 && (
+    <Box sx={{ mt: 1, display: 'flex', gap: 1, flexDirection: buttonLayout === 'vertical' ? 'column' : 'row' }}>
+      {buttons.map((button) => (
+        <Button
+          key={button.text}
+          variant="outlined"
+          size="small"
+          onClick={() => onSendMessage(button.action)}
+          sx={buttonLayout === 'vertical' ? { width: '100%' } : {}}
+        >
+          {button.text}
+        </Button>
+      ))}
+    </Box>
+  )
+);
+
+const CHAT_STORAGE_KEY = 'chat-widget-messages';
+const CUSTOM_RESPONSES_STORAGE_KEY = 'customResponses';
 
 const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socketUrl'>>(
   (
@@ -140,7 +151,7 @@ const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socket
       userAvatarUrl,
       chatTitle = 'Atendimento Online',
       predefinedQuestions: initialPredefinedQuestions = [],
-      customResponses = {},
+      customResponses: initialCustomResponses = {},
     },
     ref,
   ) => {
@@ -155,7 +166,9 @@ const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socket
     const [agentStatus, setAgentStatus] = useState<'online' | 'offline'>('online');
     const [predefinedQuestions, setPredefinedQuestions] = useState<PredefinedQuestion[]>(initialPredefinedQuestions);
     const [showPredefinedQuestions, setShowPredefinedQuestions] = useState(false);
-    const [buttonLayout, setButtonLayout] = useState<'horizontal' | 'vertical'>('horizontal'); // State for button layout
+    const [buttonLayout, setButtonLayout] = useState<'horizontal' | 'vertical'>('horizontal');
+    const [customResponses, setCustomResponses] = useState<Record<string, any>>(initialCustomResponses);
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
     // References
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -183,58 +196,30 @@ const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socket
       }
     };
 
-    // Imperative handle for external control of the chat widget
-    useImperativeHandle(ref, () => ({
-      open: () => setVisivel(true),
-      close: () => setVisivel(false),
-      sendMessage: (msg) => enviarMensagem(msg),
-      toggleTheme: () => setModoEscuro((prev) => !prev),
-      isOpen: () => visivel,
-      setBadge: (count) => setBadgeCount(count),
-      setPosition: (pos) => setPosition(pos),
-      setTheme: (tema) => setModoEscuro(tema === 'dark'),
-      resize: (dim) => setDimensions(dim),
-      loadHistory: (msgs) => setMensagens(msgs),
-      clearHistory: () => setMensagens([]),
-      setAgentStatus: (status) => setAgentStatus(status),
-      show: () => setVisivel(true),
-      hide: () => setVisivel(false),
-      setLocale: (locale) => console.log('Locale definido para:', locale),
-      setPredefinedQuestions: (questions) => setPredefinedQuestions(questions),
-    }));
-
-    // Scroll to the latest message when messages update
-    useEffect(() => {
-      scrollRef.current?.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
-    }, [mensagens]);
-
-    // Display welcome message on chat open if no messages exist
-    useEffect(() => {
-      if (visivel && mensagens.length === 0) {
-        const helloResponse = customResponses['olá'];
-        adicionarMensagem(welcomeMessage, 'agente', 'texto', null, typeof helloResponse === 'object' && helloResponse ? helloResponse.buttons : null);
-      }
-      if (visivel) setTemNovaMensagem(0);
-    }, [visivel]);
+    // Function to add a new message to the chat
+    const adicionarMensagem = useCallback(
+      (texto: string | null, origem: 'usuario' | 'agente', tipo: 'texto' | 'imagem' = 'texto', dataUrl: string | null = null, buttons: { text: string; action: string }[] | null = null) => {
+        setMensagens((msgs) => [
+          ...msgs,
+          { texto: texto || '', origem, hora: formatHora(new Date()), id: crypto.randomUUID(), tipo, dataUrl, buttons: buttons || undefined },
+        ]);
+        if (!visivel && origem === 'agente') setTemNovaMensagem((v) => v + 1);
+      },
+      [],
+    );
 
     // Function to send a new message
-    const enviarMensagem = async (msg: string) => {
+    const enviarMensagem = useCallback(async (msg: string) => {
       const mensagemFormatada = msg.trim().toLowerCase();
 
-      if (!mensagemFormatada) {
-        return;
-      }
+      if (!mensagemFormatada) return;
 
       setNovaMensagem('');
       adicionarMensagem(mensagemFormatada, 'usuario');
 
-      // Check for custom responses
       if (customResponses.hasOwnProperty(mensagemFormatada)) {
         const resposta = customResponses[mensagemFormatada];
-        if (typeof resposta === 'object' && resposta) {
+        if (typeof resposta === 'object' && resposta && resposta.text) {
           adicionarMensagem(resposta.text, 'agente', 'texto', null, resposta.buttons);
         } else if (typeof resposta === 'string') {
           adicionarMensagem(resposta, 'agente');
@@ -242,30 +227,15 @@ const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socket
       } else {
         adicionarMensagem('Desculpe, não entendi sua pergunta.', 'agente');
       }
-    };
-
-    // Function to add a new message to the chat
-    const adicionarMensagem = (
-      texto: string | null,
-      origem: 'usuario' | 'agente',
-      tipo: 'texto' | 'imagem' = 'texto',
-      dataUrl: string | null = null,
-      buttons: { text: string; action: string }[] | null = null,
-    ) => {
-      setMensagens((msgs) => [
-        ...msgs,
-        { texto: texto || '', origem, hora: formatHora(new Date()), id: crypto.randomUUID(), tipo, dataUrl, buttons: buttons || undefined },
-      ]);
-      if (!visivel && origem === 'agente') setTemNovaMensagem((v) => v + 1);
-    };
+    }, [customResponses, adicionarMensagem]);
 
     // Handle click on the attachment button
-    const handleAnexoClick = () => {
+    const handleAnexoClick = useCallback(() => {
       anchorEl ? setAnchorEl(null) : fileInputRef.current?.click();
-    };
+    }, [anchorEl]);
 
     // Handle file selection for attachment
-    const handleAnexoChange = () => {
+    const handleAnexoChange = useCallback(() => {
       const file = fileInputRef.current?.files?.[0];
       if (file) {
         const reader = new FileReader();
@@ -278,13 +248,99 @@ const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socket
         };
         reader.readAsDataURL(file);
       }
-    };
+    }, [adicionarMensagem]);
 
     // Handle click on a predefined question button
-    const handlePredefinedQuestionClick = (question: string) => {
+    const handlePredefinedQuestionClick = useCallback((question: string) => {
       enviarMensagem(question);
-    };
+    }, [enviarMensagem]);
 
+    // Imperative handle for external control of the chat widget
+    useImperativeHandle(ref, () => ({
+      open: () => setVisivel(true),
+      close: () => setVisivel(false),
+      sendMessage: (msg) => enviarMensagem(msg),
+      toggleTheme: () => setModoEscuro((prev) => !prev),
+      isOpen: () => visivel,
+      setBadge: (count) => setTemNovaMensagem(count),
+      setPosition: (pos) => setPosition(pos),
+      setTheme: (tema) => setModoEscuro(tema === 'dark'),
+      resize: (dim) => setDimensions(dim),
+      loadHistory: (msgs) => setMensagens(msgs),
+      clearHistory: () => setMensagens([]),
+      setAgentStatus: (status) => setAgentStatus(status),
+      show: () => setVisivel(true),
+      hide: () => setVisivel(false),
+      setLocale: (locale) => console.log('Locale definido para:', locale),
+      setPredefinedQuestions: (questions) => setPredefinedQuestions(questions),
+    }));
+
+    // Load messages and custom responses from local storage on mount
+    useEffect(() => {
+      loadChatHistory();
+      loadCustomResponses();
+    }, []);
+
+    // Save messages to local storage whenever messages update
+    useEffect(() => {
+      saveChatHistory();
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }, [mensagens]);
+
+    // Save custom responses to local storage whenever custom responses update
+    useEffect(() => {
+      saveCustomResponses();
+    }, [customResponses]);
+
+    // Display welcome message on chat open if no messages exist
+    useEffect(() => {
+      if (visivel && mensagens.length === 0 && customResponses['olá']) {
+        adicionarMensagem(welcomeMessage, 'agente', 'texto', null, customResponses['olá'].buttons);
+      } else if (visivel && mensagens.length === 0) {
+        adicionarMensagem(welcomeMessage, 'agente');
+      }
+      if (visivel) setTemNovaMensagem(0);
+    }, [visivel, welcomeMessage, customResponses]);
+
+    // Function to load chat history from local storage
+    const loadChatHistory = useCallback(() => {
+      try {
+        const storedMessages = localStorage.getItem(CHAT_STORAGE_KEY);
+        if (storedMessages) setMensagens(JSON.parse(storedMessages));
+      } catch (error) {
+        console.error("Erro ao carregar histórico do chat:", error);
+      }
+    }, []);
+
+    // Function to save chat history to local storage
+    const saveChatHistory = useCallback(() => {
+      try {
+        localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(mensagens));
+      } catch (error) {
+        console.error("Erro ao salvar histórico do chat:", error);
+      }
+    }, [mensagens]);
+
+    // Function to load custom responses from local storage
+    const loadCustomResponses = useCallback(() => {
+      try {
+        const storedResponses = localStorage.getItem(CUSTOM_RESPONSES_STORAGE_KEY);
+        if (storedResponses) setCustomResponses(JSON.parse(storedResponses));
+      } catch (error) {
+        console.error("Erro ao carregar respostas customizadas:", error);
+      }
+    }, []);
+
+    // Function to save custom responses to local storage
+    const saveCustomResponses = useCallback(() => {
+      try {
+        localStorage.setItem(CUSTOM_RESPONSES_STORAGE_KEY, JSON.stringify(customResponses));
+      } catch (error) {
+        console.error("Erro ao salvar respostas customizadas:", error);
+      }
+    }, [customResponses]);
+
+    // Render the chat widget
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
@@ -377,7 +433,7 @@ const ChatLateral = forwardRef<ChatLateralHandle, Omit<ChatLateralProps, 'socket
                   botAvatarUrl={botAvatarUrl}
                   userAvatarUrl={userAvatarUrl}
                   theme={theme}
-                  enviarMensagem={enviarMensagem}
+                  onSendMessage={enviarMensagem}
                   buttonLayout={buttonLayout}
                 />
               ))}
